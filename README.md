@@ -1,18 +1,15 @@
 # What's this?
-this is support tool for C++.
-(but I made on mingw64)
+this is tool support compiling for C++.
+
+## Environment
+this was developped on mingw on windows11
 
 # How to use?
 1. compile with 'make'
-2. you have to make directories like below.
-   'src': you have to save source files.
-   'lib': you have to save libraries.
-   'include': you have to save include files.
-   'obj': this directory is put object files.
-3. run csup
-   and you can use like below options.
-   '-l=lib': you can add library.
-   '-Sd=dir': csup can use dir as source directory.
-   '-Id=dir': csup can use dir as include directory.
-   '-Ld=dir': csup can use dir as library directory.
-   '-P=name': you can set name to binary file.
+2. run csup\
+   and you can use below options.\
+   '-l=lib': set library want to link.\
+   '-Sd=dir': set source directory path.\
+   '-Id=dir': set including directory path.\
+   '-Ld=dir': set directory to put libraries.\
+   '-P=name': set binary file's name.
