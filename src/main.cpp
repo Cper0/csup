@@ -4,9 +4,12 @@
 #include<string>
 #include<vector>
 #include<unordered_map>
-#include<chrono>
 #include<boost/filesystem.hpp>
 #include<boost/chrono.hpp>
+
+#include"timestamp.hpp"
+#include"files.hpp"
+#include"environment.hpp"
 
 struct options
 {
@@ -83,24 +86,6 @@ bool perse_args(int32_t size, char** args, options& opt)
     return true;
 }
 
-std::vector<std::string> get_sources(std::string path)
-{
-    std::vector<std::string> src = {};
-
-    auto e = boost::filesystem::recursive_directory_iterator(path);
-
-    for(auto f : e)
-    {
-        if(f.path().extension().string().compare(".cpp") != 0) {
-            continue;
-        }
-
-        src.emplace_back(f.path().string());
-    }
-
-    return src;
-}
-
 bool compile_to_object(const std::vector<std::string>& src, const options& opt)
 {
     for(auto it = src.begin(); it != src.end(); it++)
@@ -136,81 +121,6 @@ bool link_objects(const std::vector<std::string>& obj, const options& opt)
     return true;
 }
 
-bool filter_with_timestamp(std::unordered_map<std::string, time_t>& timestamps, const std::vector<std::string>& sources, std::vector<std::string>& result)
-{
-    for(auto it = sources.begin(); it != sources.end(); it++)
-    {
-        boost::filesystem::path p(*it);
-
-        const time_t time = boost::filesystem::last_write_time(p);
-
-        //std::cout << ">> " << *it << "," << p.string() << std::endl;
-        //std::cout << ">> " << timestamps[*it] << "," << time << std::endl;
-
-        if(timestamps[*it] != time) {
-            result.emplace_back(*it);
-            timestamps[*it] = time;
-        }
-    }
-
-    return true;
-}
-
-bool read_timestamp(std::unordered_map<std::string, time_t>& times)
-{
-    std::ifstream stream(".csup");
-    if(!stream) {
-        stream.close();
-        return false;
-    }
-
-    std::string line;
-    for(; std::getline(stream, line);)
-    {
-        const size_t pos = line.find(' ');
-
-        const std::string path              = line.substr(0, pos);
-        const std::string last_write_time   = line.substr(pos + 1, line.size());
-
-        const time_t time                   = std::stoull(last_write_time);
-
-        times.emplace(path, time);
-    }
-
-    stream.close();
-
-    return true;
-}
-
-bool write_timestamps(const std::unordered_map<std::string, time_t>& times)
-{
-    std::ofstream stream(".csup");
-
-    for(auto it = times.begin(); it != times.end(); it++)
-    {
-        stream << it->first << " " << it->second << "\n";
-    }
-    
-    stream.close();
-    return true;
-}
-
-bool change_extention_o(const std::vector<std::string>& sources, std::vector<std::string>& result)
-{
-    for(auto it = sources.begin(); it != sources.end(); it++)
-    {
-        boost::filesystem::path p = *it;
-
-        const std::string path = "obj\\" + p.stem().string() + ".o";
-
-        std::cout << path << std::endl;
-
-        result.emplace_back(path);
-    }
-
-    return true;
-}
-
 void dump_targets(const std::vector<std::string>& targets)
 {
     std::cout << "--- targets ---" << std::endl;
@@ -233,56 +143,27 @@ void dump_timestamp(const std::unordered_map<std::string, time_t>& timestamp)
 
 int main(int32_t argc, char** argv)
 {
-    bool error = false;
-
-    std::unordered_map<std::string, time_t> timestamps = {};
-    read_timestamp(timestamps);
-
     //オプション解析
     options opt = {false,"main","./src","./include","./lib","./obj",{}};
     if(!perse_args(argc, argv, opt)) {
         return 0;
     }
+
+    csup::environment env = csup::environment(opt.project_name, opt.src_dir, opt.inc_dir, opt.lib_dir, opt.obj_dir);
+    env.libs() = opt.libs;
     
     //ディレクトリが存在するか
-    if(!boost::filesystem::exists(opt.src_dir) || !boost::filesystem::exists(opt.inc_dir) || !boost::filesystem::exists(opt.lib_dir)) {
+    if(!env.exists()) {
         std::cout << "[" << opt.src_dir << "," << opt.inc_dir << "," << opt.lib_dir << "," <<  opt.obj_dir << "]" << std::endl;
         std::cout << ">> doesnt exist some directories to exist." << std::endl;
-        return 0;
-    }
-
-    //ソースファイルパスの取得
-    std::vector<std::string> sources = get_sources(opt.src_dir);
-
-    dump_targets(sources);
-    dump_timestamp(timestamps);
-
-    //更新されたファイルを抽出
-    std::vector<std::string> filtered_sources = {};
-    filter_with_timestamp(timestamps, sources, filtered_sources);
-    if(sources.size() == 0) {
-        std::cout << ">> no written file." << std::endl;
         return 1;
     }
 
-    //更新されたファイルをコンパイル
-    if(!compile_to_object(filtered_sources, opt)) {
-        std::cout << ">> compiling error." << std::endl;
+    if(env.compile()) {
         return 1;
     }
 
-    //ソースファイルへのパスをオブジェクトファイルへのパスに変換
-    std::vector<std::string> objects = {};
-    change_extention_o(sources, objects);
-
-    //リンクを行う
-    if(!link_objects(objects, opt)) {
-        std::cout << ">> linking error." << std::endl;
-        return 1;
-    }
-
-    //ファイル管理用タイムスタンプを書き込む
-    write_timestamps(timestamps);
+    env.link();
 
     return 0;
 }
