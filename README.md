@@ -1,8 +1,8 @@
 # What's this?
 this is tool support compiling for C++.
 
-## Environment
-this was developped on mingw on windows11
+## Required
+You must be able to use g++ on mingw64
 
 # How to use?
 1. compile with 'make'
