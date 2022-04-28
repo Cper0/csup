@@ -8,6 +8,7 @@
 
 #include"timestamp.hpp"
 #include"files.hpp"
+#include"dependency.hpp"
 
 namespace csup
 {
@@ -43,7 +44,7 @@ namespace csup
             boost::filesystem::path p = *it;
             p.replace_extension(".o");
 
-            result.emplace_back(this->object_dir + "/" + p.filename().string());
+            result.emplace_back(this->object_dir + '\\' + p.filename().string());
         }
 
         return result;
@@ -54,13 +55,22 @@ namespace csup
         csup::timestamp ts = csup::timestamp(".csup");
         ts.read();
 
-        std::vector<std::string> sources    = ts.filter_matched_path(csup::files::get_sources(this->source_dir));
-        std::vector<std::string> objects    = this->objects_paths(sources);
+        const std::vector<std::string> sources  = csup::files::get_sources(this->source_dir);
+        const std::vector<std::string> headers  = csup::files::get_headers(this->include_dir);
+        std::vector<std::string> filtered = ts.filter_matched_path(sources);
 
-        for(size_t i = 0; i < sources.size(); i++)
+        csup::dependency dep;
+        dep.emplace(sources);
+
+        std::cout << dep.to_string() << std::endl;
+        
+        dependency::merge(dep.depended_files(headers, ts), filtered);
+        std::vector<std::string> objects = objects_paths(filtered);
+
+        for(size_t i = 0; i < filtered.size(); i++)
         {
             std::stringstream stream;
-            stream << "g++ " << this->to_inc_opt() << "-c " << sources[i] << " -o " << objects[i];
+            stream << "g++ " << this->to_inc_opt() << "-c " << filtered[i] << " -o " << objects[i];
 
             std::cout << stream.str() << std::endl;
 

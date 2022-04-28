@@ -10,6 +10,7 @@
 #include"timestamp.hpp"
 #include"files.hpp"
 #include"environment.hpp"
+#include"dependency.hpp"
 
 struct options
 {
@@ -86,41 +87,6 @@ bool perse_args(int32_t size, char** args, options& opt)
     return true;
 }
 
-bool compile_to_object(const std::vector<std::string>& src, const options& opt)
-{
-    for(auto it = src.begin(); it != src.end(); it++)
-    {
-        const boost::filesystem::path p = *it;
-        const std::string obj_path      = opt.obj_dir + "/" + p.filename().stem().string() + ".o";
-
-        std::stringstream stream;
-        stream << "g++ " << opt.to_gpp_options() << " -c " << p.string() << " -o " << obj_path; 
-
-        if(opt.put_info) std::cout << "compiling>> " << stream.str() << std::endl;
-
-        if(system(stream.str().c_str()) != 0) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool link_objects(const std::vector<std::string>& obj, const options& opt)
-{
-    std::stringstream targets;
-    for(auto it = obj.begin(); it != obj.end(); it++)
-    {
-        targets << *it << " ";
-    }
-
-    const std::string command = "g++ " + targets.str() + "-o " + opt.project_name + " " + opt.to_gpp_options();
-
-    system(command.c_str());
-
-    return true;
-}
-
 void dump_targets(const std::vector<std::string>& targets)
 {
     std::cout << "--- targets ---" << std::endl;
@@ -151,7 +117,12 @@ int main(int32_t argc, char** argv)
 
     csup::environment env = csup::environment(opt.project_name, opt.src_dir, opt.inc_dir, opt.lib_dir, opt.obj_dir);
     env.libs() = opt.libs;
-    
+
+    /*
+    csup::dependency dep  = csup::dependency();
+    dep.emplace(csup::files::get_sources(opt.src_dir));
+    */
+
     //ディレクトリが存在するか
     if(!env.exists()) {
         std::cout << "[" << opt.src_dir << "," << opt.inc_dir << "," << opt.lib_dir << "," <<  opt.obj_dir << "]" << std::endl;
@@ -159,9 +130,15 @@ int main(int32_t argc, char** argv)
         return 1;
     }
 
+    std::cout << "start compiling" << std::endl;
+
     if(env.compile()) {
         return 1;
     }
+
+    std::cout << "finished compiling" << std::endl;
+
+    std::cout << "start linking" << std::endl;
 
     env.link();
 

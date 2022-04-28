@@ -3,6 +3,8 @@
 #include<sstream>
 #include<boost/filesystem.hpp>
 
+#include"path.hpp"
+
 namespace csup
 {
     namespace files
@@ -18,7 +20,7 @@ namespace csup
                     continue;
                 }
 
-                result.emplace_back(e.path().string());
+                result.emplace_back(e.path().string().substr(2, e.path().string().size()));
             }
 
             return result;
@@ -37,7 +39,7 @@ namespace csup
                     continue;
                 }
 
-                result.emplace_back(e.path().string());
+                result.emplace_back(e.path().string().substr(2, e.path().string().size()));
             }
 
             return result;
